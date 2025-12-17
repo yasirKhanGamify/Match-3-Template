@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <meta id="unity-product" data-value="{{{ PRODUCT_NAME }}}">
+  <meta id="unity-company" data-value="{{{ COMPANY_NAME }}}">
+  <meta id="unity-version" data-value="{{{ PRODUCT_VERSION }}}">
+
+  <style>
+    canvas:focus { outline: none; }
+  </style>
+
+
+</head>
+
+<body>
+  <!-- 🔹 Loading Screen -->
+  <div id="loader">
+    <div id="logo-container">
+      <img id="logo" src="Images/logo.png" alt="Logo">
+    </div>
+    <div id="bar">
+      <div id="bar-fill"></div>
+    </div>
+  </div>
+
+  <!-- 🔹 Unity Canvas -->
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+  <!-- 🔹 Rotate Overlay -->
+  <div id="rotate-overlay">
+    <div id="rotate-content">
+      <img id="rotate-icon" src="Images/rotatePhone.png" alt="Rotate phone" />
+      <p>Please rotate your device<br>to portrait mode</p>
+    </div>
+  </div>
+
+
+<script>
+
+  GameName = document.getElementById("unity-product").dataset.value
+
+//-----------Analytics Call
+function OnUnitySendGameAnalytics(eventName, data) {
+    if (window.gtag) {
+      gtag('event', eventName, data);
+    } else {
+      console.warn("gtag not available");
+    }
+}
+
+function OnUnitySendScore(score, playtime,isRepeatUser) {
+    console.log("[HTML] Unity sent score and product name", score , GameName);
+  // play_id =`${GameName}_${getReadableRoundId()}`;
+
+  //   gtag('event', 'game_session_end', {
+  //   game_id: GameName,
+  //   duration_seconds: playtime,
+  //   repeat_user: isRepeatUser,
+  //   play_id:play_id
+  // }); 
+
+  //   gtag('event', 'player_score', {
+  //       game_id: GameName,
+  //       score_value: score,
+  //       play_id:play_id
+  //   });
+
+  //    console.log("[HTML] log play_id", play_id);
+
+
+  // if(isRepeatUser){
+  //   gtag('event', 'Replay_Game', {game_id: GameName});
+  // }
+
+}
+
+function OnUnityShowAd() {
+    console.log("[HTML] Unity requested ad");
+}
+
+function OnUnityReceivePlayerData(name, score) {
+    console.log(`[HTML] Unity sent player data: ${name}, ${score}`);
+}
+
+
+
+
+// Call Unity from HTML
+function PauseUnity() {
+    unityInstance.SendMessage('WebGLBridge', 'PauseGame');
+}
+
+function ResumeUnity() {
+    unityInstance.SendMessage('WebGLBridge', 'ResumeGame');
+}
+
+function SetUnityPlayerName(name) {
+    unityInstance.SendMessage('WebGLBridge', 'SetPlayerName', name);
+}
+</script>
+
+
+  <!-- 🔹 Unity Loader Script -->
+  <script src="Build/{{{ LOADER_FILENAME }}}"></script>
+  <script>
+    const canvas = document.querySelector("#unity-canvas");
+    const loader = document.querySelector("#loader");
+    const barFill = document.querySelector("#bar-fill");
+    const rotateOverlay = document.getElementById("rotate-overlay");
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    let unityInstance = null;
+    let unityLoaded = false;
+
+    // 🔹 Resize Canvas for mobile/desktop
+    function resizeCanvas() {
+      if (isMobile) {
+        canvas.style.position = "fixed";
+        canvas.style.top = "0";
+        canvas.style.left = "0";
+        canvas.style.width = "100%";
+        canvas.style.height = "100%";
+        canvas.style.transform = "none";
+      } else {
+        const aspect = 9 / 16;
+        let w = window.innerWidth;
+        let h = window.innerHeight;
+        if (w / h > aspect) w = h * aspect;
+        else h = w / aspect;
+
+        canvas.style.position = "absolute";
+        canvas.style.width = `${w}px`;
+        canvas.style.height = `${h}px`;
+        canvas.style.top = "50%";
+        canvas.style.left = "50%";
+        canvas.style.transform = "translate(-50%, -50%)";
+      }
+    }
+
+    // 🔹 Load Unity only when portrait
+    async function startUnity() {
+      if (unityLoaded) return;
+      unityLoaded = true;
+
+      createUnityInstance(canvas, {
+        dataUrl: "Build/{{{ DATA_FILENAME }}}",
+        frameworkUrl: "Build/{{{ FRAMEWORK_FILENAME }}}",
+        codeUrl: "Build/{{{ CODE_FILENAME }}}",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: document.getElementById("unity-company").dataset.value,
+        productName: document.getElementById("unity-product").dataset.value,
+        productVersion: document.getElementById("unity-version").dataset.value,
+      }, (progress) => {
+        barFill.style.width = (progress * 100) + "%";
+      }).then((instance) => {
+        unityInstance=instance
+        loader.style.opacity = 0;
+        setTimeout(() => loader.style.display = "none", 400);
+      }).catch(console.error);
+    }
+
+    // 🔹 Update overlay + control Unity visibility
+    function updateRotateOverlay() {
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape) {
+        rotateOverlay.style.display = "flex";
+        canvas.style.display = "none";
+        if (unityInstance) {
+          unityInstance.SendMessage('WebGLBridge', 'PauseGame');
+        console.warn(`[Html] Unity instance  ready: ✅`);
+        }else {
+        console.warn(`[Html] Unity instance not ready: ❌`);
+    }
+      } else {
+        rotateOverlay.style.display = "none";
+        canvas.style.display = "block";
+        if (unityInstance) {
+          unityInstance.SendMessage('WebGLBridge', 'ResumeGame');
+        console.warn(`Unity instance  ready: resume Game`);
+
+        }else {
+          
+        }
+        startUnity(); // Start Unity only when portrait confirmed
+      }
+    }
+
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      updateRotateOverlay();
+    });
+    window.addEventListener("orientationchange", updateRotateOverlay);
+
+    // 🔹 Require a user gesture for fullscreen
+    function initOnUserTap() {
+      // const elem = document.documentElement;
+      // if (elem.requestFullscreen) elem.requestFullscreen();
+      document.removeEventListener("click", initOnUserTap);
+    }
+    document.addEventListener("click", initOnUserTap);
+
+    // 🔹 Initial setup
+    resizeCanvas();
+    updateRotateOverlay();
+  </script>
+</body>
+</html>
